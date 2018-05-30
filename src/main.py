@@ -37,9 +37,10 @@ class my_app(QMainWindow, Ui_MainWindow):
 
         self.button_open_close.clicked.connect(self.on_click_button_open_close)
 
+        self.alive = threading.Event()
         self.recive_process = my_thread(self.recive_process_callback)
         self.recive_process.signal_trigger.connect(self.on_updata_text_output)
-        self.alive = threading.Event()
+        self.send_process = my_thread(self.send_process_callback)
 
     def fresh_port(self):
         print("fresh_port")
@@ -62,9 +63,13 @@ class my_app(QMainWindow, Ui_MainWindow):
                     self.button_open_close.setText("Close")
                     self.alive.set()
                     self.recive_process.start()
+                    self.send_process.start()
         else:
             self.alive.clear()
-            self.recive_process.exit()
+            self.recive_process.quit()
+            self.recive_process.wait()
+            self.send_process.quit()
+            self.send_process.wait()
             self.serial.close()
             self.button_open_close.setText("Open")
 
@@ -79,6 +84,11 @@ class my_app(QMainWindow, Ui_MainWindow):
                     bytes_data = self.serial.read(count)
                     self.recive_process.signal_trigger.emit(bytes_data.decode("ascii"))
                 self.recive_process.msleep(100)
+
+    def send_process_callback(self):
+        while self.alive.isSet():
+            self.serial.write(b"hello word")
+            self.recive_process.msleep(1000)
 
 
 class my_thread(QThread):
